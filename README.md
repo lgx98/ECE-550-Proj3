@@ -1,4 +1,4 @@
-# Processor - Checkpoint 1
+# Processor - Checkpoint 2
 
 ## 👨‍💻 Group Members
 
@@ -41,6 +41,8 @@ Here are some of the data dependencies in a single cycle that affects the design
 
 ![timing](README.assets/timing.png)
 
+Note that in jal instruction, regfile should latch up the value from pc not later than when pc is updated.
+
 With the carefully designed clock generator, we have 8 12.5MHz clock signals. After every async reset, the delay between the clocks are always the same. Also, `clk_out[0]` will always give the first posedge after reset. This makes the fine-grained timing control over the processor possible.
 
 ![clockgenerator](README.assets/clockgenerator.png)
@@ -51,12 +53,12 @@ At this point, the clocks of our design is as follows:
 | --------------- | --------- | ------- | ------ | ---------- |
 | imem_clock      | 12.5MHz   | posedge | 0ns    | 50%        |
 | dmem_clock      | 12.5MHz   | posedge | 50ns   | 50%        |
-| regfile_clock   | 12.5MHz   | posedge | 60ns   | 50%        |
+| regfile_clock   | 12.5MHz   | posedge | 50ns   | 50%        |
 | processor_clock | 12.5MHz   | posedge | 70ns   | 50%        |
 
 
 
-### ✔️ Checklist
+## ✔️ Checklist
 
 - [x] config.v: some useful macros for the project.
 - [x] clocks.v: generates 8 12.5MHz clock signals from the 50MHz input clock.
@@ -71,23 +73,12 @@ At this point, the clocks of our design is as follows:
 
 
 
+## 📈 Timing Simulation Waveform
+
+![Waveform](timingsimulation.png)
+
 ## 🐞 Bugs and Issues
 
-* The following instructions are disabled for this checkpoint, but the datapaths are implemented, you can enable them by de-commenting them in `randlogic.v`:
-
-  ```assembly
-  j
-  bne
-  jal
-  jr
-  blt
-  ```
-
-  
-
-* The following instructions are not implemented right now:
-
-  ```assembly
-  setx
-  bex
-  ```
+* The BIG picture have some unfixed bugs, and it would be very hard to connect the lines. Please refer to the source code for implementation details.
+* The processor uses ripple-carry adder for every addition operation. According to the book "Computer Arithmetic: Algorithms and Hardware Designs", carry-skip adders would have less latency on FPGAs, which may give higher max frequency.
+* The clock offsets between different modules can be further fine-tuned to achieve higher max frequency.

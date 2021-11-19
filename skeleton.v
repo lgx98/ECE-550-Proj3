@@ -27,7 +27,7 @@ module skeleton(clock, reset, imem_clock, dmem_clock, processor_clock, regfile_c
     );
     assign imem_clock = clks[0];
     assign dmem_clock = clks[5];
-    assign regfile_clock = clks[6];
+    assign regfile_clock = clks[5];
     assign processor_clock = clks[7];
 
     /** IMEM **/

@@ -62,7 +62,9 @@ module processor(clock,
                  ctrl_readRegB,    // O: Register to read from port B of regfile
                  data_writeReg,    // O: Data to write to for regfile
                  data_readRegA,    // I: Data from port A of regfile
-                 data_readRegB);   // I: Data from port B of regfile
+                 data_readRegB,    // I: Data from port B of regfile
+                 //addr_pcin//For testing
+                 );
     // Control signals
     input clock, reset;
     
@@ -90,6 +92,7 @@ module processor(clock,
     //==>> Instruction Fetch <<== 
     wire ctrl_branch;
     wire [31:0] addr_pcin;
+    //output [31:0] addr_pcin;//for testing
     wire [31:0] addr_branch;
     wire [31:0] addr_pcout;
     wire [31:0] addr_nxtpc;
@@ -111,6 +114,7 @@ module processor(clock,
     
     //==>> Instruction Decode & Regfile <<== 
     // instruction fields
+    wire ctrl_ex;
     wire [4:0] inst_opcode;
     wire [4:0] inst_rd;
     wire [4:0] inst_rs;
@@ -128,15 +132,35 @@ module processor(clock,
     // regfile
     assign ctrl_writeEnable = ctrl_datapath[`REGWE];
     assign ctrl_writeReg    =
-        ctrl_datapath[`JAL] ?
-            `RRETADDR
+        (ctrl_ex | ctrl_datapath[`SETX]) ?
+            `RSTATUS
         :
-            ctrl_ex ?
-                `RSTATUS
+            ctrl_datapath[`JAL] ?
+                `RRETADDR
                 :
                 inst_rd;
-    assign ctrl_readRegA    = inst_rs;
-    assign ctrl_readRegB    = ctrl_datapath[`SW] ? inst_rd : inst_rt;
+    assign ctrl_readRegA    = 
+        ctrl_datapath[`BEX] ?
+            `RZERO
+        :
+            ctrl_datapath[`JR] ?
+                inst_rd
+            :
+                ctrl_datapath[`CONDB] ?
+                    inst_rd
+                :
+                    inst_rs;
+    assign ctrl_readRegB    =
+        ctrl_datapath[`BEX] ?
+            `RSTATUS
+        :
+            ctrl_datapath[`SW] ?
+                inst_rd
+            :
+                ctrl_datapath[`CONDB] ?
+                    inst_rs
+                :
+                    inst_rt;
     assign inst_opcode      = inst[31:27];
     
     // random logic (decoder)
@@ -167,10 +191,17 @@ module processor(clock,
     wire ctrl_lt;
     wire ctrl_ovf;
     wire ctrl_condbr;
-    wire ctrl_ex;
+    wire ctrl_immjmp;
     wire [31:0] data_excode;
     
-    assign ctrl_aluop    = ctrl_datapath[`IMMADD] ? `ALUADD : inst_aluop;
+    assign ctrl_aluop    = 
+        ctrl_datapath[`IMMADD] ?
+            `ALUADD
+        :
+            ctrl_datapath[`CONDB] ?
+                `ALUSUB
+            :
+                inst_aluop;
     assign data_operanda = data_readRegA;
     assign data_operandb = ctrl_datapath[`IMM2ALU] ? data_simm17x : data_readRegB;
     alu u_alu(
@@ -183,16 +214,17 @@ module processor(clock,
     .isLessThan(ctrl_lt),
     .overflow(ctrl_ovf));
     
-    assign ctrl_condbr = (ctrl_datapath[`BNE]&&ctrl_ne)|(ctrl_datapath[`BLT]&&ctrl_lt);
-    assign ctrl_branch = ctrl_datapath[`IMM2PC]|
-        ctrl_datapath[`REG2PC]|
+    assign ctrl_condbr = (ctrl_datapath[`BNE] & ctrl_ne) | (ctrl_datapath[`BLT] & ctrl_lt);
+    assign ctrl_immjmp = ctrl_datapath[`IMM2PC] | (ctrl_datapath[`BEX] & ctrl_ne);
+    assign ctrl_branch = ctrl_immjmp |
+        ctrl_datapath[`REG2PC] |
         ctrl_condbr;
     
     assign addr_branch =
         ctrl_condbr ?
             addr_nxtpc + data_simm17x
         :
-            ctrl_datapath[`IMM2PC] ?
+            ctrl_immjmp ?
                 data_uimm27x
             :
                 data_operanda;
@@ -215,14 +247,17 @@ module processor(clock,
 
     //==>> Register Write Back <<==
     assign data_writeReg =
-        ctrl_datapath[`PC2RD] ?
-            addr_nxtpc
+        ctrl_ex ?
+            data_excode
         :
-            ctrl_datapath[`MEM2REG] ?
-                data_dmem
+            ctrl_datapath[`SETX]?
+                data_uimm27x
             :
-                ctrl_ex ?
-                    data_excode
+                ctrl_datapath[`PC2RD] ?
+                    addr_nxtpc
                 :
-                    data_aluout;
+                 ctrl_datapath[`MEM2REG] ?
+                        data_dmem
+                    :
+                        data_aluout;
 endmodule
